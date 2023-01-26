@@ -1,0 +1,94 @@
+provider "aws" {
+  region = "us-east-1"
+}
+
+resource "aws_iam_role" "jenkins" {
+  name = "jenkins"
+  
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "jenkins.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "jenkins" {
+  name = "jenkins"
+  
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "jenkins" {
+  role = aws_iam_role.jenkins.name
+  policy_arn = aws_iam_policy.jenkins.arn
+}
+
+resource "aws_codepipeline" "jenkins" {
+  name = "jenkins"
+  
+  role_arn = aws_iam_role.jenkins.arn
+  
+  artifact_store {
+    location = "codepipeline-us-east-1-1234567890"
+    type = "S3"
+  }
+  
+  stage {
+    name = "Source"
+    
+    action {
+      name = "GitHub"
+      category = "Source"
+      owner = "ThirdParty"
+      provider = "GitHub"
+      version = "1"
+      
+      configuration {
+        owner = "OWNER"
+        repo = "REPO"
+        token = "TOKEN"
+      }
+    }
+  }
+  
+  stage {
+    name = "Build"
+    
+    action {
+      name = "Jenkins"
+      category = "Build"
+      owner = "AWS"
+      provider = "Jenkins"
+      version = "1"
+      
+      configuration {
+        JenkinsUrl = "JENKINS_URL"
+        JenkinsUser = "JENKINS_USER"
+        JenkinsToken = "JENKINS_TOKEN"
+        JenkinsBuildName = "JENKINS_BUILD_NAME"
+      }
+    }
+  }
+}
